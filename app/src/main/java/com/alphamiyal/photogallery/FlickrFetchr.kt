@@ -8,6 +8,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.alphamiyal.api.FlickrApi
 import com.alphamiyal.api.FlickrResponse
+import com.alphamiyal.api.PhotoInterceptor
 import com.alphamiyal.api.PhotoResponse
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
@@ -23,26 +24,32 @@ private const val TAG = "FlickrFetchr"
 class FlickrFetchr {
     private val flickrApi: FlickrApi
     init {
-//        val okHttpClient = OkHttpClient().newBuilder()
-//            .connectTimeout(5, TimeUnit.MINUTES)
-//            .writeTimeout(5, TimeUnit.MINUTES)
-//            .readTimeout(5, TimeUnit.MINUTES)
-//            .build()
+        val client = OkHttpClient.Builder()
+            .addInterceptor(PhotoInterceptor())
+            .connectTimeout(5, TimeUnit.MINUTES)
+            .writeTimeout(5, TimeUnit.MINUTES)
+            .readTimeout(5, TimeUnit.MINUTES)
+            .build()
 
         //ConverterFactory converts response to string
         val retrofit: Retrofit = Retrofit.Builder()
             .baseUrl("https://api.flickr.com/")
-            //.client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
+            .client(client)
             .build()
         flickrApi = retrofit.create(FlickrApi::class.java)
     }
 
-
-
     fun fetchPhotos(): LiveData<List<GalleryItem>> {
+        return fetchPhotoMetadata(flickrApi.fetchPhotos())
+    }
+    fun searchPhotos(query: String): LiveData<List<GalleryItem>> {
+        return fetchPhotoMetadata(flickrApi.searchPhotos(query))
+    }
+
+
+    private fun fetchPhotoMetadata(flickrRequest: Call<FlickrResponse>): LiveData<List<GalleryItem>> {
         val responseLiveData: MutableLiveData<List<GalleryItem>> = MutableLiveData()
-        val flickrRequest: Call<FlickrResponse> = flickrApi.fetchPhotos()
 
         flickrRequest.enqueue(object : Callback<FlickrResponse> {
 
@@ -64,6 +71,7 @@ class FlickrFetchr {
         })
 
         return responseLiveData
+
     }
 
     //annotation indicates method only should be called in background thread
